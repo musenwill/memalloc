@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/shirou/gopsutil/mem"
@@ -49,7 +50,7 @@ func (a *Alloc) Run() {
 		}
 	}
 
-	bufs = bufs[:0]
+	bufs = make([][]byte, 0)
 	a.amount = 0
 	a.count = 0
 	runtime.GC()
@@ -62,7 +63,7 @@ func (a *Alloc) Run() {
 
 		a.writeLine()
 
-		if a.amount >= 2*a.cfg.MaxLimit {
+		if a.amount >= a.cfg.MaxLimit {
 			break
 		}
 	}
@@ -139,40 +140,43 @@ func (a *Alloc) writeLine() {
 	runtime.ReadMemStats(&memStats)
 
 	str := []string{
-		formatMemused(uint64(a.amount)),
-		fmt.Sprintf("%v", a.count),
-		formatMemused(vm.Total),
-		formatMemused(vm.Used),
-		fmt.Sprintf("%v", vm.UsedPercent),
-		formatMemused(vm.Cached),
-		formatMemused(vm.Slab),
-		formatMemused(memStats.Alloc),
-		formatMemused(memStats.TotalAlloc),
-		formatMemused(memStats.Sys),
-		formatMemused(memStats.HeapSys),
-		fmt.Sprintf("%v", memStats.Mallocs),
-		fmt.Sprintf("%v", memStats.Frees),
-		formatMemused(memStats.HeapAlloc),
-		formatMemused(memStats.HeapIdle),
-		formatMemused(memStats.HeapInuse),
-		formatMemused(memStats.HeapReleased),
-		fmt.Sprintf("%v", memStats.HeapObjects),
-		formatMemused(memStats.StackInuse),
-		formatMemused(memStats.StackSys),
-		formatMemused(memStats.MSpanInuse),
-		formatMemused(memStats.MSpanSys),
-		formatMemused(memStats.MCacheInuse),
-		formatMemused(memStats.MCacheSys),
-		formatMemused(memStats.OtherSys),
+		formatMemSize(uint64(a.amount)),
+		strconv.FormatInt(a.count, 10),
+		formatMemSize(uint64(vm.Total)),
+		formatMemSize(uint64(vm.Used)),
+		strconv.FormatFloat(vm.UsedPercent, 'f', 1, 64),
+
+		formatMemSize(vm.Cached),
+		formatMemSize(vm.Slab),
+		formatMemSize(memStats.Alloc),
+		formatMemSize(memStats.TotalAlloc),
+		formatMemSize(memStats.Sys),
+		formatMemSize(memStats.HeapSys),
+
+		strconv.FormatInt(int64(memStats.Mallocs), 10),
+		strconv.FormatInt(int64(memStats.Frees), 10),
+
+		formatMemSize(memStats.HeapAlloc),
+		formatMemSize(memStats.HeapIdle),
+		formatMemSize(memStats.HeapInuse),
+		formatMemSize(memStats.HeapReleased),
+		strconv.FormatInt(int64(memStats.HeapObjects), 10),
+
+		formatMemSize(memStats.StackInuse),
+		formatMemSize(memStats.StackSys),
+		formatMemSize(memStats.MSpanInuse),
+		formatMemSize(memStats.MSpanSys),
+		formatMemSize(memStats.MCacheInuse),
+		formatMemSize(memStats.MCacheSys),
+		formatMemSize(memStats.OtherSys),
 	}
 
 	if err := a.csvWriter.Write(str); err != nil {
 		panic(err)
 	}
 	a.csvWriter.Flush()
-
 }
 
-func formatMemused(b uint64) string {
-	return fmt.Sprintf("%.2f", float64(b)/float64(1024*1024))
+func formatMemSize(size uint64) string {
+	return strconv.FormatFloat(float64(size)/float64(1024*1024), 'f', 2, 64)
 }
