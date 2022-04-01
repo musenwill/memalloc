@@ -8,4 +8,5 @@ type Config struct {
 	ReMinSize int64
 	ReMaxSize int64
 	ReSpread  float64
+	Print     bool
 }

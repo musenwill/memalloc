@@ -13,7 +13,7 @@ func main() {
 	app.EnableBashCompletion = true
 	app.Name = "memalloc"
 	app.Usage = "Memory alloc experiment"
-	app.Flags = []cli.Flag{maxLimitFlag, minSizeFlag, maxSizeFlag, spreadFlag, reMinSizeFlag, reMaxSizeFlag, reSpreadFlag}
+	app.Flags = []cli.Flag{maxLimitFlag, minSizeFlag, maxSizeFlag, spreadFlag, reMinSizeFlag, reMaxSizeFlag, reSpreadFlag, printFlag}
 	app.Action = action
 	app.RunAndExitOnError()
 }
@@ -27,6 +27,7 @@ func action(c *cli.Context) error {
 		ReMinSize: c.GlobalInt64(reMinSizeFlag.Name),
 		ReMaxSize: c.GlobalInt64(reMaxSizeFlag.Name),
 		ReSpread:  c.GlobalFloat64(reSpreadFlag.Name),
+		Print:     c.GlobalBool(printFlag.Name),
 	})
 	a.Run()
 	return nil

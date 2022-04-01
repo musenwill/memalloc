@@ -20,9 +20,9 @@ heapAlloc, heapIdle, heapInuse, heapReleased = [], [], [], []
 
 stackInuse, stackSys = [], []
 
-mspanInuse, mspanSys, mcacheInuse, mcacheSys, ohterSys = [], [], [], [], []
+mspanInuse, mspanSys, mcacheInuse, mcacheSys, ohterSys, gcSys = [], [], [], [], [], []
 
-count, mallocs, frees, heapObjects, usedPercent = [], [], [], [], []
+count, mallocs, frees, heapObjects, usedPercent, numGC = [], [], [], [], [], []
 
 
 with open(filepath, mode ='r') as file:
@@ -51,11 +51,13 @@ with open(filepath, mode ='r') as file:
         mcacheInuse.append(float( line['mcacheInuse']))
         mcacheSys.append(float( line['mcacheSys']))
         ohterSys.append(float( line['ohterSys']))
+        gcSys.append(float( line['gcSys']))
 
         count.append(float( line['count']))
         mallocs.append(float( line['mallocs']))
         frees.append(float( line['frees']))
         heapObjects.append(float( line['heapObjects']))
+        numGC.append(float( line['numGC']))
 
         usedPercent.append(float( line['usedPercent']))
 
@@ -89,6 +91,7 @@ plt.legend()
 plt.subplot(7,1,4)
 plt.plot(stackInuse, label='stackInuse')
 plt.plot(stackSys, label='stackSys')
+plt.plot(numGC, label='numGC')
 plt.title(label="stack")
 plt.legend()
 
@@ -98,6 +101,7 @@ plt.plot(mspanSys, label='mspanSys')
 plt.plot(mcacheInuse, label='mcacheInuse')
 plt.plot(mcacheSys, label='mcacheSys')
 plt.plot(ohterSys, label='ohterSys')
+# plt.plot(gcSys, label='gcSys')
 plt.title(label="span")
 plt.legend()
 

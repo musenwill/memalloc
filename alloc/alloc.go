@@ -1,12 +1,12 @@
 package alloc
 
 import (
-	"encoding/csv"
 	"fmt"
 	"math/rand"
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/mem"
@@ -22,25 +22,28 @@ type Alloc struct {
 	amount int64
 	count  int64
 
-	csvWriter *csv.Writer
+	csvWriter *os.File
 }
 
 func NewAlloc(cfg Config) *Alloc {
 	alloc := Alloc{
 		cfg: cfg,
 	}
-	alloc.csvWriter = alloc.initCsv(fmt.Sprintf("M%dmin%dmax%ds%vrmin%drmax%drs%v.csv",
-		cfg.MaxLimit, cfg.MaxSize, cfg.MinSize, cfg.Spread, cfg.ReMinSize, cfg.ReMaxSize, cfg.ReSpread))
+	if cfg.Print {
+		alloc.csvWriter = alloc.initCsv(fmt.Sprintf("M%dmin%dmax%ds%vrmin%drmax%drs%v.csv",
+			cfg.MaxLimit, cfg.MaxSize, cfg.MinSize, cfg.Spread, cfg.ReMinSize, cfg.ReMaxSize, cfg.ReSpread))
+	}
 	return &alloc
 }
 
 func (a *Alloc) Run() {
-	bufs := make([][]byte, 0)
+	startSnapshot := NewMemSnapshot()
 
+	link := Link{}
 	for {
 		size := a.size(a.cfg.MinSize, a.cfg.MaxSize, a.cfg.Spread)
-		bufs = append(bufs, a.alloc(size))
-		a.count = int64(len(bufs))
+		link.Push(a.alloc(size))
+		a.count = link.Len()
 		a.amount += size
 
 		a.writeLine()
@@ -50,15 +53,17 @@ func (a *Alloc) Run() {
 		}
 	}
 
-	bufs = make([][]byte, 0)
+	link = Link{}
 	a.amount = 0
 	a.count = 0
 	runtime.GC()
 
+	halftimeSnapshot := NewMemSnapshot()
+
 	for {
 		size := a.size(a.cfg.ReMinSize, a.cfg.ReMaxSize, a.cfg.ReSpread)
-		bufs = append(bufs, a.alloc(size))
-		a.count = int64(len(bufs))
+		link.Push(a.alloc(size))
+		a.count = link.Len()
 		a.amount += size
 
 		a.writeLine()
@@ -67,13 +72,40 @@ func (a *Alloc) Run() {
 			break
 		}
 	}
+
+	endSnapshot := NewMemSnapshot()
+
+	xUsed := halftimeSnapshot.Used - startSnapshot.Used
+	yUsed := endSnapshot.Used - startSnapshot.Used
+
+	xSys := halftimeSnapshot.Sys - startSnapshot.Sys
+	ySys := endSnapshot.Sys - startSnapshot.Sys
+
+	xHeapSys := halftimeSnapshot.HeapSys - startSnapshot.HeapSys
+	yHeapSys := endSnapshot.HeapSys - startSnapshot.HeapSys
+
+	xRecycle := halftimeSnapshot.HeapIdle - halftimeSnapshot.HeapReleased
+	yRecycle := endSnapshot.HeapIdle - endSnapshot.HeapReleased
+
+	var m int64 = 1024 * 1024
+	fmt.Printf("    used: %5v		    used: %5v		rate: %.2f\n", xUsed/m, yUsed/m, float64(yUsed)/float64(xUsed))
+	fmt.Printf("     sys: %5v		     sys: %5v		rate: %.2f\n", xSys/m, ySys/m, float64(ySys)/float64(xSys))
+	fmt.Printf("heap sys: %5v		heap sys: %5v		rate: %.2f\n", xHeapSys/m, yHeapSys/m, float64(yHeapSys)/float64(xHeapSys))
+	fmt.Printf(" recycle: %5v		 recycle: %5v		rate: %.2f\n", xRecycle/m, yRecycle/m, float64(yRecycle)/float64(xRecycle))
+
+	if a.cfg.Print {
+		a.csvWriter.Sync()
+	}
 }
 
 func (a *Alloc) size(min, max int64, spread float64) int64 {
-	r := rand.Float64()
-
 	m := int64(float64(min+max) * (1 - spread))
 
+	if m == min || m == max {
+		return m
+	}
+
+	r := rand.Float64()
 	if r < spread {
 		return rand.Int63()%(m-min) + min
 	} else {
@@ -89,13 +121,11 @@ func (a *Alloc) alloc(size int64) []byte {
 	return buf
 }
 
-func (a *Alloc) initCsv(filename string) *csv.Writer {
+func (a *Alloc) initCsv(filename string) *os.File {
 	file, err := os.Create(filename)
 	if err != nil {
 		panic(err)
 	}
-	csvWriter := csv.NewWriter(file)
-
 	header := []string{
 		"amount",
 		"count",
@@ -124,14 +154,20 @@ func (a *Alloc) initCsv(filename string) *csv.Writer {
 		"mcacheInuse",
 		"mcacheSys",
 		"ohterSys",
+		"gcSys",
+		"numGC",
 	}
-	if err := csvWriter.Write(header); err != nil {
+	if _, err := file.WriteString(strings.Join(header, ",") + "\n"); err != nil {
 		panic(err)
 	}
-	return csvWriter
+	return file
 }
 
 func (a *Alloc) writeLine() {
+	if !a.cfg.Print {
+		return
+	}
+
 	vm, err := mem.VirtualMemory()
 	if err != nil {
 		panic(err)
@@ -169,12 +205,13 @@ func (a *Alloc) writeLine() {
 		formatMemSize(memStats.MCacheInuse),
 		formatMemSize(memStats.MCacheSys),
 		formatMemSize(memStats.OtherSys),
+		formatMemSize(memStats.GCSys),
+		strconv.FormatInt(int64(memStats.NumGC), 10),
 	}
 
-	if err := a.csvWriter.Write(str); err != nil {
+	if _, err := a.csvWriter.WriteString(strings.Join(str, ",") + "\n"); err != nil {
 		panic(err)
 	}
-	a.csvWriter.Flush()
 }
 
 func formatMemSize(size uint64) string {

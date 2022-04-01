@@ -46,3 +46,9 @@ var reSpreadFlag = cli.Float64Flag{
 	Required: false,
 	Value:    0.5,
 }
+
+var printFlag = cli.BoolFlag{
+	Name:     "print",
+	Usage:    "print csv",
+	Required: false,
+}
