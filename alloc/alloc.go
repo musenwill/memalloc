@@ -31,7 +31,7 @@ func NewAlloc(cfg Config) *Alloc {
 	}
 	if cfg.Print {
 		alloc.csvWriter = alloc.initCsv(fmt.Sprintf("M%dmin%dmax%ds%vrmin%drmax%drs%v.csv",
-			cfg.MaxLimit, cfg.MaxSize, cfg.MinSize, cfg.Spread, cfg.ReMinSize, cfg.ReMaxSize, cfg.ReSpread))
+			cfg.MaxLimit, cfg.MinSize, cfg.MaxSize, cfg.Spread, cfg.ReMinSize, cfg.ReMaxSize, cfg.ReSpread))
 	}
 	return &alloc
 }
@@ -46,7 +46,9 @@ func (a *Alloc) Run() {
 		a.count = link.Len()
 		a.amount += size
 
-		a.writeLine()
+		if a.count%20 == 0 {
+			a.writeLine()
+		}
 
 		if a.amount >= a.cfg.MaxLimit {
 			break
@@ -66,7 +68,9 @@ func (a *Alloc) Run() {
 		a.count = link.Len()
 		a.amount += size
 
-		a.writeLine()
+		if a.count%20 == 0 {
+			a.writeLine()
+		}
 
 		if a.amount >= a.cfg.MaxLimit {
 			break
