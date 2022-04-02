@@ -30,8 +30,8 @@ func NewAlloc(cfg Config) *Alloc {
 		cfg: cfg,
 	}
 	if cfg.Print {
-		alloc.csvWriter = alloc.initCsv(fmt.Sprintf("M%dmin%dmax%ds%vrmin%drmax%drs%v.csv",
-			cfg.MaxLimit, cfg.MinSize, cfg.MaxSize, cfg.Spread, cfg.ReMinSize, cfg.ReMaxSize, cfg.ReSpread))
+		alloc.csvWriter = alloc.initCsv(fmt.Sprintf("M%dmin%dmax%ds%vrmin%drmax%drs%vhalf%v.csv",
+			cfg.MaxLimit, cfg.MinSize, cfg.MaxSize, cfg.Spread, cfg.ReMinSize, cfg.ReMaxSize, cfg.ReSpread, cfg.ReleaseHalf))
 	}
 	return &alloc
 }
@@ -39,40 +39,65 @@ func NewAlloc(cfg Config) *Alloc {
 func (a *Alloc) Run() {
 	startSnapshot := NewMemSnapshot()
 
-	link := Link{}
+	var totalAmount int64 = a.cfg.MaxLimit
+	linkA := Link{}
+	linkB := Link{}
+	var lastAmount int64 = 0
+
 	for {
 		size := a.size(a.cfg.MinSize, a.cfg.MaxSize, a.cfg.Spread)
-		link.Push(a.alloc(size))
-		a.count = link.Len()
-		a.amount += size
 
-		if a.count%20 == 0 {
-			a.writeLine()
+		if a.count&0x01 == 0x01 {
+			linkA.Push(a.alloc(size))
+		} else {
+			linkB.Push(a.alloc(size))
 		}
 
-		if a.amount >= a.cfg.MaxLimit {
+		a.count++
+		a.amount += size
+		if a.amount-lastAmount >= 16*1024 {
+			a.writeLine()
+			lastAmount = a.amount
+		}
+
+		if a.amount >= totalAmount {
 			break
 		}
 	}
 
-	link = Link{}
-	a.amount = 0
-	a.count = 0
+	linkA = Link{}
+	if !a.cfg.ReleaseHalf {
+		linkB = Link{}
+		a.count = 0
+		a.amount = 0
+	} else {
+		totalAmount /= 2
+		a.count /= 2
+		a.amount /= 2
+	}
+	lastAmount = 0
 	runtime.GC()
 
 	halftimeSnapshot := NewMemSnapshot()
 
 	for {
 		size := a.size(a.cfg.ReMinSize, a.cfg.ReMaxSize, a.cfg.ReSpread)
-		link.Push(a.alloc(size))
-		a.count = link.Len()
-		a.amount += size
 
-		if a.count%20 == 0 {
-			a.writeLine()
+		if a.count&0x01 == 0x01 {
+			linkA.Push(a.alloc(size))
+		} else {
+			linkB.Push(a.alloc(size))
 		}
 
-		if a.amount >= a.cfg.MaxLimit {
+		a.count++
+		a.amount += size
+
+		if a.amount-lastAmount >= 16*1024 {
+			a.writeLine()
+			lastAmount = a.amount
+		}
+
+		if a.amount >= totalAmount {
 			break
 		}
 	}

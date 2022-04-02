@@ -52,3 +52,9 @@ var printFlag = cli.BoolFlag{
 	Usage:    "print csv",
 	Required: false,
 }
+
+var halfFlag = cli.BoolFlag{
+	Name:     "half",
+	Usage:    "release half memory",
+	Required: false,
+}
