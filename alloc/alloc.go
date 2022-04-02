@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -37,20 +38,22 @@ func NewAlloc(cfg Config) *Alloc {
 }
 
 func (a *Alloc) Run() {
+	bufsA := newBufs(100000000)
+	bufsA.Reset()
+	bufsB := newBufs(100000000)
+	bufsB.Reset()
+
 	startSnapshot := NewMemSnapshot()
 
-	var totalAmount int64 = a.cfg.MaxLimit
-	linkA := Link{}
-	linkB := Link{}
 	var lastAmount int64 = 0
 
 	for {
 		size := a.size(a.cfg.MinSize, a.cfg.MaxSize, a.cfg.Spread)
 
 		if a.count&0x01 == 0x01 {
-			linkA.Push(a.alloc(size))
+			bufsA[a.count] = a.alloc(size)
 		} else {
-			linkB.Push(a.alloc(size))
+			bufsB[a.count/2] = a.alloc(size)
 		}
 
 		a.count++
@@ -60,18 +63,17 @@ func (a *Alloc) Run() {
 			lastAmount = a.amount
 		}
 
-		if a.amount >= totalAmount {
+		if a.amount >= a.cfg.MaxLimit {
 			break
 		}
 	}
 
-	linkA = Link{}
+	bufsA.Reset()
 	if !a.cfg.ReleaseHalf {
-		linkB = Link{}
+		bufsB.Reset()
 		a.count = 0
 		a.amount = 0
 	} else {
-		totalAmount /= 2
 		a.count /= 2
 		a.amount /= 2
 	}
@@ -80,13 +82,15 @@ func (a *Alloc) Run() {
 
 	halftimeSnapshot := NewMemSnapshot()
 
+	debug.FreeOSMemory()
+
 	for {
 		size := a.size(a.cfg.ReMinSize, a.cfg.ReMaxSize, a.cfg.ReSpread)
 
 		if a.count&0x01 == 0x01 {
-			linkA.Push(a.alloc(size))
+			bufsA[a.count] = a.alloc(size)
 		} else {
-			linkB.Push(a.alloc(size))
+			bufsB[a.count/2] = a.alloc(size)
 		}
 
 		a.count++
@@ -97,7 +101,7 @@ func (a *Alloc) Run() {
 			lastAmount = a.amount
 		}
 
-		if a.amount >= totalAmount {
+		if a.amount >= a.cfg.MaxLimit {
 			break
 		}
 	}
