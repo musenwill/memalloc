@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -78,6 +79,8 @@ func (a *Alloc) Run() {
 	runtime.GC()
 
 	halftimeSnapshot := NewMemSnapshot()
+
+	debug.FreeOSMemory()
 
 	for {
 		size := a.size(a.cfg.ReMinSize, a.cfg.ReMaxSize, a.cfg.ReSpread)
