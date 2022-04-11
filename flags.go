@@ -58,3 +58,9 @@ var halfFlag = cli.BoolFlag{
 	Usage:    "release half memory",
 	Required: false,
 }
+
+var pprofFlag = cli.BoolFlag{
+	Name:     "pprof",
+	Usage:    "enable memory pprof",
+	Required: false,
+}

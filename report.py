@@ -12,9 +12,9 @@ dir = os.path.dirname(filepath)
 basename = os.path.basename(filepath)
 
 
-amount, used, syss, heapSys = [], [], [], []
+amount, syss, heapSys = [], [], []
 
-cached, slab, alloc, totalAlloc = [], [], [], []
+alloc, totalAlloc = [], []
 
 heapAlloc, heapIdle, heapInuse, heapReleased = [], [], [], []
 
@@ -22,19 +22,16 @@ stackInuse, stackSys = [], []
 
 mspanInuse, mspanSys, mcacheInuse, mcacheSys, ohterSys, gcSys = [], [], [], [], [], []
 
-count, mallocs, frees, heapObjects, usedPercent, numGC = [], [], [], [], [], []
+count, mallocs, frees, heapObjects, numGC = [], [], [], [], []
 
 
 with open(filepath, mode ='r') as file:
     csvFile = csv.DictReader(file)
     for line in csvFile:
         amount.append(float(line['amount']))
-        used.append(float(line['used']))
         syss.append(float(line['sys']))
         heapSys.append(float(line['heapSys']))
 
-        cached.append(float(line['cached']))
-        slab.append(float(line['slab']))
         alloc.append(float(line['alloc']))
         totalAlloc.append(float(line['totalAlloc']))
 
@@ -59,14 +56,11 @@ with open(filepath, mode ='r') as file:
         heapObjects.append(float( line['heapObjects']))
         numGC.append(float( line['numGC']))
 
-        usedPercent.append(float( line['usedPercent']))
-
 
 plt.figure(figsize=(40,35), dpi=256)
 
 plt.subplot(7,1,1)
 plt.plot(amount, label='amount')
-plt.plot(used, label='used')
 plt.plot(syss, label='sys')
 plt.plot(heapSys, label='heapSys')
 plt.title(label="global")
@@ -91,8 +85,6 @@ plt.title(label="span")
 plt.legend()
 
 plt.subplot(7,1,4)
-plt.plot(cached, label='cached')
-plt.plot(slab, label='slab')
 plt.plot(alloc, label='alloc')
 plt.plot(totalAlloc, label='totalAlloc')
 plt.title(label="cache/alloc")

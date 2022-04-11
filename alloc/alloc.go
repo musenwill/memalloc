@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/shirou/gopsutil/mem"
 )
 
 func init() {
@@ -22,16 +20,16 @@ type Alloc struct {
 	amount int64
 	count  int64
 
-	csvWriter *os.File
+	buffer *Buffer
 }
 
 func NewAlloc(cfg Config) *Alloc {
 	alloc := Alloc{
-		cfg: cfg,
+		cfg:    cfg,
+		buffer: NewBuffer(100 * 1024 * 1024),
 	}
 	if cfg.Print {
-		alloc.csvWriter = alloc.initCsv(fmt.Sprintf("M%dmin%dmax%ds%vrmin%drmax%drs%vhalf%v.csv",
-			cfg.MaxLimit, cfg.MinSize, cfg.MaxSize, cfg.Spread, cfg.ReMinSize, cfg.ReMaxSize, cfg.ReSpread, cfg.ReleaseHalf))
+		alloc.initCsv()
 	}
 	return &alloc
 }
@@ -124,7 +122,7 @@ func (a *Alloc) Run() {
 	fmt.Printf(" recycle: %5v		 recycle: %5v		rate: %.2f\n", xRecycle/m, yRecycle/m, float64(yRecycle)/float64(xRecycle))
 
 	if a.cfg.Print {
-		a.csvWriter.Sync()
+		a.Flush()
 	}
 }
 
@@ -151,20 +149,10 @@ func (a *Alloc) alloc(size int64) []byte {
 	return buf
 }
 
-func (a *Alloc) initCsv(filename string) *os.File {
-	file, err := os.Create(filename)
-	if err != nil {
-		panic(err)
-	}
+func (a *Alloc) initCsv() {
 	header := []string{
 		"amount",
 		"count",
-
-		"total",
-		"used",
-		"usedPercent",
-		"cached",
-		"slab",
 
 		"alloc",
 		"totalAlloc",
@@ -187,10 +175,8 @@ func (a *Alloc) initCsv(filename string) *os.File {
 		"gcSys",
 		"numGC",
 	}
-	if _, err := file.WriteString(strings.Join(header, ",") + "\n"); err != nil {
-		panic(err)
-	}
-	return file
+
+	a.buffer.WriteString(strings.Join(header, ",") + "\n")
 }
 
 func (a *Alloc) writeLine() {
@@ -198,22 +184,12 @@ func (a *Alloc) writeLine() {
 		return
 	}
 
-	vm, err := mem.VirtualMemory()
-	if err != nil {
-		panic(err)
-	}
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
-	str := []string{
-		formatMemSize(uint64(a.amount)),
+	a.buffer.WriteStrings(formatMemSize(uint64(a.amount)),
 		strconv.FormatInt(a.count, 10),
-		formatMemSize(uint64(vm.Total)),
-		formatMemSize(uint64(vm.Used)),
-		strconv.FormatFloat(vm.UsedPercent, 'f', 1, 64),
 
-		formatMemSize(vm.Cached),
-		formatMemSize(vm.Slab),
 		formatMemSize(memStats.Alloc),
 		formatMemSize(memStats.TotalAlloc),
 		formatMemSize(memStats.Sys),
@@ -237,9 +213,17 @@ func (a *Alloc) writeLine() {
 		formatMemSize(memStats.OtherSys),
 		formatMemSize(memStats.GCSys),
 		strconv.FormatInt(int64(memStats.NumGC), 10),
-	}
+	)
+}
 
-	if _, err := a.csvWriter.WriteString(strings.Join(str, ",") + "\n"); err != nil {
+func (a *Alloc) Flush() {
+	file, err := os.Create(fmt.Sprintf("M%dmin%dmax%ds%vrmin%drmax%drs%vhalf%v.csv", a.cfg.MaxLimit, a.cfg.MinSize, a.cfg.MaxSize, a.cfg.Spread, a.cfg.ReMinSize, a.cfg.ReMaxSize, a.cfg.ReSpread, a.cfg.ReleaseHalf))
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	if _, err := file.Write(a.buffer.Bytes()); err != nil {
 		panic(err)
 	}
 }
