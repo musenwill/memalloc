@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"git.querycap.com/musenwill/memalloc/alloc"
+	"github.com/musenwill/memalloc/alloc"
 	"github.com/urfave/cli"
 )
 

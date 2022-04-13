@@ -1,4 +1,4 @@
-module git.querycap.com/musenwill/memalloc
+module github.com/musenwill/memalloc
 
 go 1.16
 
